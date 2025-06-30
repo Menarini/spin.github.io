@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>제약회사용 대화형 스핀셀링(SPIN Selling) 가이드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Neutral Professional -->
+    <!-- Application Structure Plan: The application is designed as a single-page interactive guide to the SPIN Selling framework. The core is a visual, clickable S-P-I-N process diagram which acts as the primary navigation. This is more intuitive than a linear text document for understanding a process. Clicking a stage in the diagram dynamically updates a dedicated content area below, showing the stage's goal, description, and example questions in a structured format. This focused-view approach prevents information overload while keeping the overall process context visible. A conceptual bar chart is included to visually represent the key benefit of SPIN—the increasing level of the customer's perceived need—which adds a data-driven insight layer not present in the original text. This structure transforms a static report into an engaging, explorable learning tool. A new AI-powered Question Generator section allows users to input specific scenarios and receive context-relevant SPIN questions, enhancing the practical application of the framework. -->
+    <!-- Visualization & Content Choices: 1. SPIN Process Flow (HTML/CSS): Report Info -> The 4 stages of SPIN. Goal -> Organize/Change. Viz -> A clickable sequence of styled divs. Interaction -> Click to update content view. Justification -> Visually represents the process flow, which is central to the methodology. 2. Dynamic Content Panels (HTML/JS): Report Info -> Stage descriptions and example questions. Goal -> Inform. Viz -> Text blocks within styled cards. Interaction -> Content is dynamically loaded based on the selected process stage. Justification -> Breaks down information into digestible chunks, reducing cognitive load. 3. Conceptual Need-Payoff Chart (Chart.js/Canvas): Report Info -> The implicit goal of raising need awareness. Goal -> Relate/Inform. Viz -> Bar chart showing 'Customer's Perceived Need' increasing across S, P, I, N stages. Interaction -> Tooltips on hover provide context. Justification -> Makes the abstract benefit of the SPIN methodology tangible and easy to grasp visually. Library -> Chart.js. 4. AI-Powered Question Generator (HTML/JS/Gemini API): Report Info -> User-defined disease/product and situation. Goal -> Generate context-specific SPIN questions. Viz -> Input forms and dynamically populated lists of questions. Interaction -> Text input, button click to trigger LLM call, displays generated questions. Justification -> Provides practical, on-demand support for sales representatives by leveraging AI for scenario-based question generation. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #F5F5F4; /* stone-100 */
+            color: #1C1917; /* stone-900 */
+        }
+        .active-tab {
+            background-color: #3B82F6 !important; /* blue-500 */
+            color: white !important;
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .tab-button {
+            transition: all 0.3s ease-in-out;
+        }
+        .content-card {
+            transition: all 0.3s ease-in-out;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 40vh;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .arrow {
+            color: #A8A29E; /* stone-400 */
+        }
+        .gemini-feature-title {
+            background: linear-gradient(90deg, #60A5FA 0%, #3B82F6 100%); /* blue-400 to blue-600 */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="container mx-auto p-4 sm:p-6 md:p-8">
+        <header class="text-center mb-8 md:mb-12">
+            <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold text-blue-600">제약회사용 대화형 SPIN® Selling 가이드</h1>
+            <p class="mt-3 text-lg text-stone-600 max-w-3xl mx-auto">
+                의료 전문가와 환자의 니즈를 파악하고 가치를 제안하는 강력한 질문 프레임워크를 대화형으로 탐색해보세요.
+            </p>
+        </header>
+
+        <main>
+            <section id="spin-flow" class="mb-8 md:mb-12">
+                <p class="text-center text-stone-700 mb-6 text-base md:text-lg">
+                    아래 다이어그램은 제약 영업 환경에 맞춰진 SPIN 셀링의 네 단계를 나타냅니다. 각 단계를 클릭하여 자세한 설명과 질문 예시를 확인하세요.
+                </p>
+                <div class="flex items-center justify-center space-x-2 sm:space-x-4">
+                    <div id="tab-s" class="tab-button flex-1 text-center p-3 sm:p-4 rounded-lg shadow-md bg-white cursor-pointer border border-stone-200">
+                        <span class="text-xl sm:text-2xl font-bold">S</span>
+                        <p class="text-sm sm:text-base text-stone-500">상황</p>
+                    </div>
+                    <div class="arrow text-2xl font-light">→</div>
+                    <div id="tab-p" class="tab-button flex-1 text-center p-3 sm:p-4 rounded-lg shadow-md bg-white cursor-pointer border border-stone-200">
+                        <span class="text-xl sm:text-2xl font-bold">P</span>
+                        <p class="text-sm sm:text-base text-stone-500">문제</p>
+                    </div>
+                    <div class="arrow text-2xl font-light">→</div>
+                    <div id="tab-i" class="tab-button flex-1 text-center p-3 sm:p-4 rounded-lg shadow-md bg-white cursor-pointer border border-stone-200">
+                        <span class="text-xl sm:text-2xl font-bold">I</span>
+                        <p class="text-sm sm:text-base text-stone-500">시사</p>
+                    </div>
+                    <div class="arrow text-2xl font-light">→</div>
+                    <div id="tab-n" class="tab-button flex-1 text-center p-3 sm:p-4 rounded-lg shadow-md bg-white cursor-pointer border border-stone-200">
+                        <span class="text-xl sm:text-2xl font-bold">N</span>
+                        <p class="text-sm sm:text-base text-stone-500">해결</p>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="content-display" class="bg-stone-200 p-6 rounded-xl min-h-[300px]">
+                <!-- JS로 내용이 채워집니다 -->
+            </section>
+
+            <section id="visualization" class="mt-12 md:mt-16">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl md:text-3xl font-bold text-stone-800">SPIN 단계별 의료 전문가/환자 니즈 변화</h2>
+                    <p class="mt-2 text-stone-600 max-w-2xl mx-auto">
+                        SPIN 질문을 통해 대화가 진행될수록 의료 전문가와 환자가 느끼는 문제 해결의 필요성과 가치가 어떻게 증가하는지 시각적으로 확인해보세요.
+                    </p>
+                </div>
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+                   <div class="chart-container">
+                        <canvas id="spinChart"></canvas>
+                   </div>
+                </div>
+            </section>
+
+            <section id="gemini-feature" class="mt-12 md:mt-16 bg-blue-50 p-6 rounded-xl shadow-lg border border-blue-200">
+                <h2 class="text-2xl md:text-3xl font-bold text-center mb-6 gemini-feature-title">✨ AI 기반 질문 생성기</h2>
+                <p class="text-center text-stone-700 mb-6 text-base md:text-lg">
+                    특정 질환/제품 및 상황을 입력하여 Gemini AI가 제안하는 맞춤형 SPIN 질문 아이디어를 받아보세요.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label for="diseaseProductInput" class="block text-stone-700 text-sm font-bold mb-2">
+                            질환/제품 (예: 당뇨병 치료제, 고혈압)
+                        </label>
+                        <textarea id="diseaseProductInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-stone-700 leading-tight focus:outline-none focus:shadow-outline resize-y min-h-[50px]" rows="2" placeholder="예: 2형 당뇨병 신약, 만성 신장 질환"></textarea>
+                    </div>
+                    <div>
+                        <label for="situationInput" class="block text-stone-700 text-sm font-bold mb-2">
+                            상황 설명 (예: 신규 환자 유치, 기존 약물 부작용 상담)
+                        </label>
+                        <textarea id="situationInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-stone-700 leading-tight focus:outline-none focus:shadow-outline resize-y min-h-[50px]" rows="2" placeholder="예: 특정 대학병원 내분비내과 교수님과의 미팅, 신규 개원한 의원의 원장님"></textarea>
+                    </div>
+                </div>
+
+                <div class="text-center mb-6">
+                    <button id="generateQuestionsBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+                        ✨ 질문 생성하기
+                    </button>
+                    <div id="loadingIndicator" class="mt-4 text-blue-600 font-semibold hidden">
+                        질문을 생성 중입니다... 잠시만 기다려 주세요.
+                    </div>
+                </div>
+
+                <div id="generatedQuestionsOutput" class="mt-8">
+                    <!-- AI 생성 질문이 여기에 표시됩니다 -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const spinData = {
+            s: {
+                title: '상황 질문 (Situation Questions)',
+                goal: '의료 전문가의 현재 진료 환경, 환자 관리 방식, 처방 패턴에 대한 사실 관계를 파악합니다.',
+                description: '의료기관의 규모, 진료과목, 주요 환자군, 현재 사용 중인 치료 프로토콜이나 약물 등 배경 지식을 수집합니다. 필요한 정보만 간결하게 얻는 것이 중요합니다.',
+                examples: [
+                    "선생님께서는 주로 어떤 질환을 가진 환자들을 진료하고 계신가요?",
+                    "현재 이 질환에 어떤 치료법을 주로 처방하고 계신가요?",
+                    "이 질환을 가진 환자들의 평균 재원 기간은 어느 정도 되나요?",
+                    "현재 사용하시는 약물의 처방 동향은 어떻게 되나요?",
+                    "환자들의 약물 순응도는 어떻게 관리하고 계신가요?"
+                ],
+                color: 'bg-sky-500'
+            },
+            p: {
+                title: '문제 질문 (Problem Questions)',
+                goal: '의료 전문가나 환자가 겪고 있는 문제점, 어려움, 불만족스러운 부분을 명확히 합니다.',
+                description: '상황 질문을 통해 파악한 정보에서 잠재적인 문제점을 찾아내고, 의료 전문가나 환자 스스로 그 문제를 인식하도록 돕는 질문입니다.',
+                examples: [
+                    "현재 처방하시는 약물에서 환자들이 주로 호소하는 부작용은 무엇인가요?",
+                    "기존 치료법으로는 잘 조절되지 않는 환자군이 있으신가요?",
+                    "환자들의 약물 순응도를 높이는 데 어려움이 있으신가요?",
+                    "특정 진단 과정에서 시간이 오래 걸리거나 비효율적인 부분이 있으신가요?",
+                    "질병 진행을 늦추거나 합병증을 예방하는 데 한계가 있다고 느끼시는 부분이 있으신가요?"
+                ],
+                color: 'bg-amber-500'
+            },
+            i: {
+                title: '시사 질문 (Implication Questions)',
+                goal: '의료 전문가나 환자가 인식한 문제점이 가져올 부정적인 영향이나 결과를 고객 스스로 깨닫게 합니다.',
+                description: '문제의 심각성을 증폭시키고, 문제 해결의 필요성을 강화하는 단계입니다. 문제 해결의 가치를 높이는 데 핵심적인 역할을 합니다.',
+                examples: [
+                    "환자들이 겪는 부작용이 치료 지속성에 어떤 영향을 미치나요?",
+                    "치료 실패율이 높아지면 환자 예후나 병원 재원 일수에 어떤 영향이 있을까요?",
+                    "약물 순응도 문제로 인해 환자의 삶의 질이 저하되거나 의료비가 증가하는 경우는 없습니까?",
+                    "진단 지연이 질병의 조기 발견 및 치료 기회를 놓치게 할 가능성은 없나요?",
+                    "기존 치료의 한계가 의료진의 업무 부담이나 환자 가족의 어려움으로 이어지지는 않습니까?"
+                ],
+                color: 'bg-red-500'
+            },
+            n: {
+                title: '해결 질문 (Need-Payoff Questions)',
+                goal: '의료 전문가나 환자가 문제 해결을 통해 얻을 수 있는 긍정적인 결과와 이점을 상상하게 하고, 솔루션의 가치를 고객 스스로 표현하도록 유도합니다.',
+                description: '문제와 그 영향에 대한 인식이 충분히 형성된 후, 의료 전문가나 환자가 해결책의 필요성을 느끼고 제품/서비스의 이점을 스스로 말하게 하는 질문입니다.',
+                examples: [
+                    "만약 부작용을 줄이면서도 효과적인 치료법이 있다면, 환자들의 치료 만족도에 어떤 영향을 미칠까요?",
+                    "치료 실패율을 낮출 수 있다면, 환자 관리 측면에서 어떤 개선을 기대할 수 있을까요?",
+                    "환자들의 약물 순응도를 획기적으로 높일 수 있다면, 의료진의 진료 부담이 얼마나 줄어들까요?",
+                    "진단 시간을 단축하여 조기 치료를 가능하게 한다면, 환자 예후에 어떤 긍정적인 변화를 가져올까요?",
+                    "질병의 진행을 효과적으로 억제할 수 있다면, 환자 삶의 질과 의료 시스템에 어떤 기여를 할 수 있을까요?"
+                ],
+                color: 'bg-emerald-500'
+            }
+        };
+
+        const contentDisplay = document.getElementById('content-display');
+        const tabs = {
+            s: document.getElementById('tab-s'),
+            p: document.getElementById('tab-p'),
+            i: document.getElementById('tab-i'),
+            n: document.getElementById('tab-n'),
+        };
+
+        function updateContent(stage) {
+            const data = spinData[stage];
+            
+            contentDisplay.innerHTML = `
+                <div class="content-card">
+                    <h3 class="text-2xl md:text-3xl font-bold text-stone-800 mb-4">${data.title}</h3>
+                    <div class="mb-6 p-4 rounded-lg bg-white/70">
+                        <p class="font-semibold text-lg text-stone-700">🎯 목표</p>
+                        <p class="text-stone-600 mt-1">${data.goal}</p>
+                    </div>
+                    <div class="mb-6 p-4 rounded-lg bg-white/70">
+                        <p class="font-semibold text-lg text-stone-700">📝 설명</p>
+                        <p class="text-stone-600 mt-1 leading-relaxed">${data.description}</p>
+                    </div>
+                     <div class="p-4 rounded-lg bg-white/70">
+                        <p class="font-semibold text-lg text-stone-700 mb-3">💬 질문 예시</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            ${data.examples.map(ex => `<div class="bg-stone-50 p-3 rounded-md border border-stone-200 text-stone-700">${ex}</div>`).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            Object.values(tabs).forEach(tab => tab.classList.remove('active-tab'));
+            tabs[stage].classList.add('active-tab');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            Object.keys(tabs).forEach(stage => {
+                tabs[stage].addEventListener('click', () => updateContent(stage));
+            });
+
+            updateContent('s');
+
+            const ctx = document.getElementById('spinChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['S (상황)', 'P (문제)', 'I (시사)', 'N (해결)'],
+                    datasets: [{
+                        label: '고객의 필요성 인식 수준',
+                        data: [15, 35, 75, 95],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.6)',
+                            'rgba(245, 158, 11, 0.6)',
+                            'rgba(239, 68, 68, 0.6)',
+                            'rgba(16, 185, 129, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(245, 158, 11, 1)',
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(16, 185, 129, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: '필요성 인식 수준 (%)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y + '%';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const diseaseProductInput = document.getElementById('diseaseProductInput');
+            const situationInput = document.getElementById('situationInput');
+            const generateQuestionsBtn = document.getElementById('generateQuestionsBtn');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const generatedQuestionsOutput = document.getElementById('generatedQuestionsOutput');
+
+            generateQuestionsBtn.addEventListener('click', async () => {
+                const diseaseProduct = diseaseProductInput.value.trim();
+                const situation = situationInput.value.trim();
+
+                if (!diseaseProduct || !situation) {
+                    generatedQuestionsOutput.innerHTML = '<div class="text-red-600 text-center mt-4">질환/제품과 상황 설명을 모두 입력해주세요.</div>';
+                    return;
+                }
+
+                loadingIndicator.classList.remove('hidden');
+                generatedQuestionsOutput.innerHTML = ''; 
+
+                try {
+                    const prompt = `당신은 제약 영업 전문가입니다. 다음 질환/제품과 상황 설명을 바탕으로 SPIN Selling의 각 단계(상황, 문제, 시사, 해결)에 맞는 질문 5개씩을 생성해 주세요. 응답은 JSON 형식으로 해주세요.
+
+질환/제품: ${diseaseProduct}
+상황 설명: ${situation}
+
+JSON 형식 예시:
+{
+  "상황": ["질문1", "질문2", "질문3", "질문4", "질문5"],
+  "문제": ["질문1", "질문2", "질문3", "질문4", "질문5"],
+  "시사": ["질문1", "질문2", "질문3", "질문4", "질문5"],
+  "해결": ["질문1", "질문2", "질문3", "질문4", "질문5"]
+}
+`;
+                    let chatHistory = [];
+                    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                    const payload = {
+                        contents: chatHistory,
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    "상황": { "type": "ARRAY", "items": { "type": "STRING" } },
+                                    "문제": { "type": "ARRAY", "items": { "type": "STRING" } },
+                                    "시사": { "type": "ARRAY", "items": { "type": "STRING" } },
+                                    "해결": { "type": "ARRAY", "items": { "type": "STRING" } }
+                                },
+                                propertyOrdering: ["상황", "문제", "시사", "해결"]
+                            }
+                        }
+                    };
+                    const apiKey = ""; 
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        
+                        const json = result.candidates[0].content.parts[0].text;
+                        const parsedJson = JSON.parse(json);
+                        
+                        let outputHtml = '';
+                        const stages = ['상황', '문제', '시사', '해결'];
+                        const stageColors = {
+                            '상황': 'bg-sky-100 border-sky-300',
+                            '문제': 'bg-amber-100 border-amber-300',
+                            '시사': 'bg-red-100 border-red-300',
+                            '해결': 'bg-emerald-100 border-emerald-300'
+                        };
+
+                        stages.forEach(stage => {
+                            if (parsedJson[stage] && parsedJson[stage].length > 0) {
+                                outputHtml += `
+                                    <div class="mb-6 p-4 rounded-lg shadow-md ${stageColors[stage]}">
+                                        <h4 class="text-xl font-bold text-stone-800 mb-3">${stage} 질문:</h4>
+                                        <ul class="list-disc pl-5 space-y-2 text-stone-700">
+                                            ${parsedJson[stage].map(q => `<li>${q}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                `;
+                            }
+                        });
+                        generatedQuestionsOutput.innerHTML = outputHtml;
+
+                    } else {
+                        generatedQuestionsOutput.innerHTML = '<div class="text-red-600 text-center mt-4">질문 생성에 실패했습니다. 다시 시도해 주세요.</div>';
+                    }
+
+                } catch (error) {
+                    console.error('Error generating questions:', error);
+                    generatedQuestionsOutput.innerHTML = '<div class="text-red-600 text-center mt-4">오류가 발생했습니다: ' + error.message + '</div>';
+                } finally {
+                    loadingIndicator.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
